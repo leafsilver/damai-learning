@@ -4,17 +4,15 @@
 
 本项目不会复制大麦或大麦 Pro 的业务实现，而是从最小可运行的 Spring Boot 单体应用开始，依次加入工程化基础、MySQL、Redis、消息队列、Elasticsearch 和微服务能力。
 
-## 当前阶段：V1
+## 当前阶段：V0
 
 当前只包含：
 
 - Java 17
 - Maven
 - Spring Boot Web
-- 统一接口响应
-- 统一错误码
-- 业务异常与全局异常处理
-- 请求参数校验
+- 应用启动类
+- 一个用于验证项目运行状态的接口
 - 基础自动化测试
 
 启动项目后访问：
@@ -25,15 +23,9 @@ GET http://localhost:8080/api/hello
 
 预期响应：
 
-```json
-{
-  "code": 0,
-  "message": "success",
-  "data": "damai-learning is running"
-}
+```text
+damai-learning is running
 ```
-
-V1的文件结构和请求流程说明见[学习笔记](docs/V1-工程化基础.md)。
 
 ## 学习路线
 
