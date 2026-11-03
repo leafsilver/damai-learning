@@ -1,0 +1,17 @@
+target/
+.idea/
+*.iml
+.vscode/
+.classpath
+.project
+.settings/
+*.log
+
+### Local environment files ###
+.env
+application-local.yml
+application-local.yaml
+
+### OS files ###
+.DS_Store
+Thumbs.db
