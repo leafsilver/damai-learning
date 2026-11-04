@@ -3,8 +3,12 @@ package com.damai.learning.common.exception;
 import com.damai.learning.common.result.Result;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.validation.FieldError;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+import java.util.List;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -17,6 +21,27 @@ public class GlobalExceptionHandler {
             BusinessException exception
     ) {
         return Result.failure(exception.getErrorCode());
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public Result<Void> handleValidationException(
+            MethodArgumentNotValidException exception
+    ) {
+        List<FieldError> fieldErrors =
+                exception.getBindingResult().getFieldErrors();
+
+        if (fieldErrors.isEmpty()) {
+            return Result.failure(
+                    CommonErrorCode.INVALID_PARAMETER
+            );
+        }
+
+        String message = fieldErrors.get(0).getDefaultMessage();
+
+        return Result.failure(
+                CommonErrorCode.INVALID_PARAMETER,
+                message
+        );
     }
 
     @ExceptionHandler(Exception.class)

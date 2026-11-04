@@ -28,6 +28,17 @@ public class Result<T> {
         );
     }
 
+    public static <T> Result<T> failure(
+            ErrorCode errorCode,
+            String message
+    ) {
+        return new Result<>(
+                errorCode.getCode(),
+                message,
+                null
+        );
+    }
+
     public int getCode() {
         return code;
     }
