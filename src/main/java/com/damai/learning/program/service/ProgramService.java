@@ -12,17 +12,53 @@ import com.damai.learning.program.entity.Program;
 import com.damai.learning.program.mapper.ProgramMapper;
 import com.damai.learning.program.vo.ProgramDetailVO;
 import com.damai.learning.program.vo.ProgramListVO;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.dao.DataAccessException;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
 
 @Service
 public class ProgramService {
 
+    private static final Logger log =
+            LoggerFactory.getLogger(ProgramService.class);
+
+    private static final String PROGRAM_DETAIL_KEY_PREFIX =
+            "damai:program:detail:";
+
+    private static final Duration PROGRAM_DETAIL_TTL =
+            Duration.ofMinutes(10);
+
+    /**
+     * 数据不存在时存入Redis的特殊标记。
+     */
+    private static final String NULL_CACHE_VALUE =
+            "__NULL__";
+
+    /**
+     * 空值缓存时间要短一些，避免数据库后来有数据了，
+     * Redis却长时间仍然认为数据不存在。
+     */
+    private static final Duration NULL_CACHE_TTL =
+            Duration.ofMinutes(2);
+
     @Autowired
     private ProgramMapper programMapper;
+
+    @Autowired
+    private StringRedisTemplate stringRedisTemplate;
+
+    @Autowired
+    private ObjectMapper objectMapper;
 
     public PageResult<ProgramListVO> pageOnSalePrograms(
             long pageNum,
@@ -69,6 +105,26 @@ public class ProgramService {
     }
 
     public ProgramDetailVO getProgramDetail(Long id) {
+        String cacheKey =
+                buildProgramDetailCacheKey(id);
+
+        ProgramDetailVO cachedProgram =
+                getProgramDetailFromCache(cacheKey);
+
+        if (cachedProgram != null) {
+            log.info(
+                    "节目详情缓存命中，id={}",
+                    id
+            );
+
+            return cachedProgram;
+        }
+
+        log.info(
+                "节目详情缓存未命中，查询MySQL，id={}",
+                id
+        );
+
         Program program = programMapper.selectById(id);
 
         if (program == null
@@ -77,12 +133,22 @@ public class ProgramService {
                 program.getProgramStatus(),
                 1
         )) {
+            cacheProgramNotExist(cacheKey);
+
             throw new BusinessException(
                     CommonErrorCode.PROGRAM_NOT_EXIST
             );
         }
 
-        return toProgramDetailVO(program);
+        ProgramDetailVO programDetailVO =
+                toProgramDetailVO(program);
+
+        cacheProgramDetail(
+                cacheKey,
+                programDetailVO
+        );
+
+        return programDetailVO;
     }
 
     private ProgramListVO toProgramListVO(Program program) {
@@ -136,6 +202,7 @@ public class ProgramService {
         return program.getId();
     }
 
+    @Transactional
     public void updateProgram(
             Long id,
             ProgramUpdateRequest request
@@ -174,8 +241,11 @@ public class ProgramService {
                     CommonErrorCode.PROGRAM_NOT_EXIST
             );
         }
+
+        deleteProgramDetailCache(id);
     }
 
+    @Transactional
     public void offSaleProgram(Long id) {
         LambdaUpdateWrapper<Program> updateWrapper =
                 new LambdaUpdateWrapper<>();
@@ -197,5 +267,117 @@ public class ProgramService {
                     CommonErrorCode.PROGRAM_CANNOT_OFF_SALE
             );
         }
+
+        deleteProgramDetailCache(id);
+    }
+
+    private String buildProgramDetailCacheKey(Long id) {
+        return PROGRAM_DETAIL_KEY_PREFIX + id;
+    }
+
+    private ProgramDetailVO getProgramDetailFromCache(
+            String cacheKey
+    ) {
+        String json;
+
+        try {
+            json = stringRedisTemplate
+                    .opsForValue()
+                    .get(cacheKey);
+        } catch (DataAccessException exception) {
+            log.warn(
+                    "读取节目详情缓存失败，回退到MySQL，cacheKey={}",
+                    cacheKey,
+                    exception
+            );
+
+            return null;
+        }
+
+        if (json == null) {
+            return null;
+        }
+
+        if (NULL_CACHE_VALUE.equals(json)) {
+            log.info(
+                    "节目详情空值缓存命中，cacheKey={}",
+                    cacheKey
+            );
+
+            throw new BusinessException(
+                    CommonErrorCode.PROGRAM_NOT_EXIST
+            );
+        }
+
+        try {
+            return objectMapper.readValue(
+                    json,
+                    ProgramDetailVO.class
+            );
+        } catch (JsonProcessingException exception) {
+            throw new IllegalStateException(
+                    "节目详情缓存解析失败",
+                    exception
+            );
+        }
+    }
+
+    private void cacheProgramDetail(
+            String cacheKey,
+            ProgramDetailVO programDetailVO
+    ) {
+        try {
+            String json =
+                    objectMapper.writeValueAsString(
+                            programDetailVO
+                    );
+
+            stringRedisTemplate
+                    .opsForValue()
+                    .set(
+                            cacheKey,
+                            json,
+                            PROGRAM_DETAIL_TTL
+                    );
+        } catch (JsonProcessingException exception) {
+            throw new IllegalStateException(
+                    "节目详情转换JSON失败",
+                    exception
+            );
+        }
+        catch (DataAccessException exception) {
+            log.warn(
+                    "写入节目详情缓存失败，忽略缓存写入，cacheKey={}",
+                    cacheKey,
+                    exception
+            );
+        }
+    }
+
+    private void cacheProgramNotExist(
+            String cacheKey
+    ) {
+        try {
+            stringRedisTemplate
+                    .opsForValue()
+                    .set(
+                            cacheKey,
+                            NULL_CACHE_VALUE,
+                            NULL_CACHE_TTL
+                    );
+        } catch (DataAccessException exception) {
+            log.warn(
+                    "写入节目空值缓存失败，忽略缓存写入，cacheKey={}",
+                    cacheKey,
+                    exception
+            );
+        }
+    }
+
+    private void deleteProgramDetailCache(Long id) {
+        String cacheKey =
+                buildProgramDetailCacheKey(id);
+
+        stringRedisTemplate.delete(cacheKey);
     }
 }

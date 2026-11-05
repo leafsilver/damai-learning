@@ -8,6 +8,15 @@ spring:
     username: ${DB_USERNAME:root}
     password: ${DB_PASSWORD}
 
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      database: ${REDIS_DATABASE:1}
+      timeout: 2s
+
+
+
 server:
   port: 8080
 
