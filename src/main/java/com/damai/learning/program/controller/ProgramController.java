@@ -1,5 +1,6 @@
 package com.damai.learning.program.controller;
 
+import com.damai.learning.common.page.PageResult;
 import com.damai.learning.common.result.Result;
 import com.damai.learning.program.dto.ProgramCreateRequest;
 import com.damai.learning.program.service.ProgramService;
@@ -11,7 +12,6 @@ import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 
 @Tag(name = "节目接口")
 @RestController
@@ -21,11 +21,26 @@ public class ProgramController {
     @Autowired
     private ProgramService programService;
 
-    @Operation(summary = "查询已上架节目列表")
+    @Operation(summary = "分页查询已上架节目")
     @GetMapping("/list")
-    public Result<List<ProgramListVO>> list() {
+    public Result<PageResult<ProgramListVO>> list(
+            @RequestParam(
+                    value = "pageNum",
+                    defaultValue = "1"
+            )
+            long pageNum,
+
+            @RequestParam(
+                    value = "pageSize",
+                    defaultValue = "10"
+            )
+            long pageSize
+    ) {
         return Result.success(
-                programService.listOnSalePrograms()
+                programService.pageOnSalePrograms(
+                        pageNum,
+                        pageSize
+                )
         );
     }
 

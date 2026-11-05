@@ -1,8 +1,10 @@
 package com.damai.learning.program.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.damai.learning.common.exception.BusinessException;
 import com.damai.learning.common.exception.CommonErrorCode;
+import com.damai.learning.common.page.PageResult;
 import com.damai.learning.program.dto.ProgramCreateRequest;
 import com.damai.learning.program.entity.Program;
 import com.damai.learning.program.mapper.ProgramMapper;
@@ -20,7 +22,21 @@ public class ProgramService {
     @Autowired
     private ProgramMapper programMapper;
 
-    public List<ProgramListVO> listOnSalePrograms() {
+    public PageResult<ProgramListVO> pageOnSalePrograms(
+            long pageNum,
+            long pageSize
+    ) {
+        if (pageNum < 1
+                || pageSize < 1
+                || pageSize > 100) {
+            throw new BusinessException(
+                    CommonErrorCode.INVALID_PARAMETER
+            );
+        }
+
+        Page<Program> page =
+                new Page<>(pageNum, pageSize);
+
         LambdaQueryWrapper<Program> queryWrapper =
                 new LambdaQueryWrapper<>();
 
@@ -29,12 +45,25 @@ public class ProgramService {
                 .eq(Program::getStatus, 1)
                 .orderByDesc(Program::getCreateTime);
 
-        List<Program> programs =
-                programMapper.selectList(queryWrapper);
+        Page<Program> programPage =
+                programMapper.selectPage(
+                        page,
+                        queryWrapper
+                );
 
-        return programs.stream()
-                .map(this::toProgramListVO)
-                .toList();
+        List<ProgramListVO> records =
+                programPage.getRecords()
+                        .stream()
+                        .map(this::toProgramListVO)
+                        .toList();
+
+        return new PageResult<>(
+                programPage.getCurrent(),
+                programPage.getSize(),
+                programPage.getTotal(),
+                programPage.getPages(),
+                records
+        );
     }
 
     public ProgramDetailVO getProgramDetail(Long id) {
