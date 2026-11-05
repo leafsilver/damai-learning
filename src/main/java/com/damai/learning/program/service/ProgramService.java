@@ -3,6 +3,7 @@ package com.damai.learning.program.service;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.damai.learning.common.exception.BusinessException;
 import com.damai.learning.common.exception.CommonErrorCode;
+import com.damai.learning.program.dto.ProgramCreateRequest;
 import com.damai.learning.program.entity.Program;
 import com.damai.learning.program.mapper.ProgramMapper;
 import com.damai.learning.program.vo.ProgramDetailVO;
@@ -82,5 +83,25 @@ public class ProgramService {
         );
 
         return programDetailVO;
+    }
+
+    public Long createProgram(
+            ProgramCreateRequest request
+    ) {
+        Program program = new Program();
+
+        program.setTitle(request.getTitle());
+        program.setActor(request.getActor());
+        program.setPlace(request.getPlace());
+        program.setItemPicture(
+                request.getItemPicture()
+        );
+
+        program.setProgramStatus(1);
+        program.setStatus(1);
+
+        programMapper.insert(program);
+
+        return program.getId();
     }
 }
