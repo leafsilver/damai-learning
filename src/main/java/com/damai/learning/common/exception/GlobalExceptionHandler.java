@@ -1,5 +1,7 @@
 package com.damai.learning.common.exception;
 
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 import com.damai.learning.common.result.Result;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -7,6 +9,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+
 
 import java.util.List;
 
@@ -41,6 +44,25 @@ public class GlobalExceptionHandler {
         return Result.failure(
                 CommonErrorCode.INVALID_PARAMETER,
                 message
+        );
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public Result<Void> handleTypeMismatchException(
+            MethodArgumentTypeMismatchException exception
+    ) {
+        return Result.failure(
+                CommonErrorCode.INVALID_PARAMETER,
+                "请求参数格式错误"
+        );
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    public Result<Void> handleNoResourceFoundException(
+            NoResourceFoundException exception
+    ) {
+        return Result.failure(
+                CommonErrorCode.REQUEST_PATH_NOT_FOUND
         );
     }
 
