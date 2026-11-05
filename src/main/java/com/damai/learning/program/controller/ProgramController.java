@@ -3,6 +3,7 @@ package com.damai.learning.program.controller;
 import com.damai.learning.common.page.PageResult;
 import com.damai.learning.common.result.Result;
 import com.damai.learning.program.dto.ProgramCreateRequest;
+import com.damai.learning.program.dto.ProgramUpdateRequest;
 import com.damai.learning.program.service.ProgramService;
 import com.damai.learning.program.vo.ProgramDetailVO;
 import com.damai.learning.program.vo.ProgramListVO;
@@ -62,5 +63,26 @@ public class ProgramController {
         return Result.success(
                 programService.createProgram(request)
         );
+    }
+
+    @Operation(summary = "编辑节目")
+    @PutMapping("/update/{id}")
+    public Result<Void> update(
+            @PathVariable("id") Long id,
+            @Valid @RequestBody ProgramUpdateRequest request
+    ) {
+        programService.updateProgram(id, request);
+
+        return Result.success();
+    }
+
+    @Operation(summary = "下架节目")
+    @PutMapping("/off-sale/{id}")
+    public Result<Void> offSale(
+            @PathVariable("id") Long id
+    ) {
+        programService.offSaleProgram(id);
+
+        return Result.success();
     }
 }

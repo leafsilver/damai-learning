@@ -1,11 +1,13 @@
 package com.damai.learning.program.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.damai.learning.common.exception.BusinessException;
 import com.damai.learning.common.exception.CommonErrorCode;
 import com.damai.learning.common.page.PageResult;
 import com.damai.learning.program.dto.ProgramCreateRequest;
+import com.damai.learning.program.dto.ProgramUpdateRequest;
 import com.damai.learning.program.entity.Program;
 import com.damai.learning.program.mapper.ProgramMapper;
 import com.damai.learning.program.vo.ProgramDetailVO;
@@ -132,5 +134,68 @@ public class ProgramService {
         programMapper.insert(program);
 
         return program.getId();
+    }
+
+    public void updateProgram(
+            Long id,
+            ProgramUpdateRequest request
+    ) {
+        LambdaUpdateWrapper<Program> updateWrapper =
+                new LambdaUpdateWrapper<>();
+
+        updateWrapper
+                .eq(Program::getId, id)
+                .eq(Program::getStatus, 1)
+                .set(
+                        Program::getTitle,
+                        request.getTitle()
+                )
+                .set(
+                        Program::getActor,
+                        request.getActor()
+                )
+                .set(
+                        Program::getPlace,
+                        request.getPlace()
+                )
+                .set(
+                        Program::getItemPicture,
+                        request.getItemPicture()
+                );
+
+        int affectedRows =
+                programMapper.update(
+                        null,
+                        updateWrapper
+                );
+
+        if (affectedRows != 1) {
+            throw new BusinessException(
+                    CommonErrorCode.PROGRAM_NOT_EXIST
+            );
+        }
+    }
+
+    public void offSaleProgram(Long id) {
+        LambdaUpdateWrapper<Program> updateWrapper =
+                new LambdaUpdateWrapper<>();
+
+        updateWrapper
+                .eq(Program::getId, id)
+                .eq(Program::getStatus, 1)
+                .eq(Program::getProgramStatus, 1)
+                .set(Program::getProgramStatus, 0);
+
+        int affectedRows =
+                programMapper.update(
+                        null,
+                        updateWrapper
+                );
+
+        if (affectedRows != 1) {
+            throw new BusinessException(
+                    CommonErrorCode.PROGRAM_CANNOT_OFF_SALE
+            );
+        }
     }
 }

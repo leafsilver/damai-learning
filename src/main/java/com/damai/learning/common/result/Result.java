@@ -20,6 +20,10 @@ public class Result<T> {
         return new Result<>(0, "success", data);
     }
 
+    public static Result<Void> success() {
+        return new Result<>(0, "success", null);
+    }
+
     public static <T> Result<T> failure(ErrorCode errorCode) {
         return new Result<>(
                 errorCode.getCode(),

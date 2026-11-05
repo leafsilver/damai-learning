@@ -6,6 +6,8 @@ public enum CommonErrorCode implements ErrorCode {
 
     PROGRAM_NOT_EXIST(41001, "节目不存在"),
 
+    PROGRAM_CANNOT_OFF_SALE(41002, "节目不存在或已下架"),
+
     REQUEST_PATH_NOT_FOUND(40400, "请求地址不存在"),
 
     INTERNAL_SERVER_ERROR(50000, "系统异常");
