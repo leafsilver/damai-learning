@@ -21,6 +21,12 @@ public enum CommonErrorCode implements ErrorCode {
 
     ORDER_CREATE_FAILED(43001, "订单创建失败"),
 
+    ORDER_NOT_EXIST(43002, "订单不存在"),
+
+    ORDER_STATUS_NOT_ALLOWED(43003, "当前订单状态不允许取消"),
+
+    ORDER_CANCEL_FAILED(43004, "订单取消失败"),
+
     REQUEST_PATH_NOT_FOUND(40400, "请求地址不存在"),
 
     INTERNAL_SERVER_ERROR(50000, "系统异常");

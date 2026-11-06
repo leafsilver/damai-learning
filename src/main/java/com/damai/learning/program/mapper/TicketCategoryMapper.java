@@ -20,4 +20,14 @@ public interface TicketCategoryMapper extends BaseMapper<TicketCategory> {
             @Param("ticketCategoryId") Long ticketCategoryId,
             @Param("quantity") Integer quantity
     );
+
+    /**
+     * 取消订单时恢复可用库存。
+     *
+     * @return 影响行数，1表示恢复成功
+     */
+    int restoreStock(
+            @Param("ticketCategoryId") Long ticketCategoryId,
+            @Param("quantity") Integer quantity
+    );
 }

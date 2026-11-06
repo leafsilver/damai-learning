@@ -1,7 +1,10 @@
 package com.damai.learning.order.service;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.damai.learning.common.exception.BusinessException;
 import com.damai.learning.common.exception.CommonErrorCode;
+import com.damai.learning.order.dto.OrderCancelRequest;
 import com.damai.learning.order.dto.OrderCreateRequest;
 import com.damai.learning.order.entity.TicketOrder;
 import com.damai.learning.order.enums.OrderStatus;
@@ -72,6 +75,45 @@ public class OrderService {
         }
 
         return toOrderCreateVO(ticketOrder);
+    }
+
+    /**
+     * 取消待支付订单并恢复库存。
+     */
+    @Transactional
+    public void cancelOrder(OrderCancelRequest request) {
+        TicketOrder ticketOrder = getUserOrder(request.getUserId(), request.getOrderNo());
+        Integer currentStatus = ticketOrder.getOrderStatus();
+
+        if (Objects.equals(currentStatus, OrderStatus.CANCELED.getCode())) {
+            return;
+        }
+
+        if (!Objects.equals(currentStatus, OrderStatus.PENDING_PAYMENT.getCode())) {
+            throw new BusinessException(CommonErrorCode.ORDER_STATUS_NOT_ALLOWED);
+        }
+
+        LambdaUpdateWrapper<TicketOrder> updateWrapper = new LambdaUpdateWrapper<>();
+
+        updateWrapper
+                .eq(TicketOrder::getId, ticketOrder.getId())
+                .eq(TicketOrder::getUserId, request.getUserId())
+                .eq(TicketOrder::getOrderStatus, OrderStatus.PENDING_PAYMENT.getCode())
+                .eq(TicketOrder::getStatus, 1)
+                .set(TicketOrder::getOrderStatus, OrderStatus.CANCELED.getCode());
+
+        int updatedRows = ticketOrderMapper.update(null, updateWrapper);
+
+        if (updatedRows != 1) {
+            throw new BusinessException(CommonErrorCode.ORDER_CANCEL_FAILED);
+        }
+
+        int restoredRows = ticketCategoryMapper.restoreStock(
+                ticketOrder.getTicketCategoryId(), ticketOrder.getQuantity());
+
+        if (restoredRows != 1) {
+            throw new BusinessException(CommonErrorCode.ORDER_CANCEL_FAILED);
+        }
     }
 
     /**
@@ -162,5 +204,25 @@ public class OrderService {
         orderCreateVO.setOrderStatus(ticketOrder.getOrderStatus());
 
         return orderCreateVO;
+    }
+
+    /**
+     * 查询指定用户的有效订单。
+     */
+    private TicketOrder getUserOrder(Long userId, String orderNo) {
+        LambdaQueryWrapper<TicketOrder> queryWrapper = new LambdaQueryWrapper<>();
+
+        queryWrapper
+                .eq(TicketOrder::getUserId, userId)
+                .eq(TicketOrder::getOrderNo, orderNo)
+                .eq(TicketOrder::getStatus, 1);
+
+        TicketOrder ticketOrder = ticketOrderMapper.selectOne(queryWrapper);
+
+        if (ticketOrder == null) {
+            throw new BusinessException(CommonErrorCode.ORDER_NOT_EXIST);
+        }
+
+        return ticketOrder;
     }
 }

@@ -15,4 +15,11 @@
           AND status = 1
     </update>
 
+    <!-- 取消订单时恢复库存，并防止可用库存超过总库存。 -->
+    <update id="restoreStock">
+        UPDATE d_ticket_category
+        SET available_stock = available_stock + #{quantity}
+        WHERE id = #{ticketCategoryId}
+          AND available_stock + #{quantity} &lt;= total_stock
+    </update>
 </mapper>
