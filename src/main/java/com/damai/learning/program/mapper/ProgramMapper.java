@@ -4,6 +4,9 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.damai.learning.program.entity.Program;
 import org.apache.ibatis.annotations.Mapper;
 
+/**
+ * 节目数据访问接口。
+ */
 @Mapper
 public interface ProgramMapper extends BaseMapper<Program> {
 }

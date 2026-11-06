@@ -4,6 +4,9 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
+/**
+ * 新增节目请求参数。
+ */
 @Data
 public class ProgramCreateRequest {
 

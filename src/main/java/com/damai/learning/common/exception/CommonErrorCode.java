@@ -1,5 +1,8 @@
 package com.damai.learning.common.exception;
 
+/**
+ * 项目通用错误码。
+ */
 public enum CommonErrorCode implements ErrorCode {
 
     INVALID_PARAMETER(40001, "请求参数错误"),
