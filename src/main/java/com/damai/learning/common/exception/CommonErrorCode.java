@@ -27,6 +27,8 @@ public enum CommonErrorCode implements ErrorCode {
 
     ORDER_CANCEL_FAILED(43004, "订单取消失败"),
 
+    ORDER_PAY_FAILED(43005, "订单支付失败"),
+
     REQUEST_PATH_NOT_FOUND(40400, "请求地址不存在"),
 
     INTERNAL_SERVER_ERROR(50000, "系统异常");

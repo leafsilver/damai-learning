@@ -6,6 +6,7 @@ import com.damai.learning.common.exception.BusinessException;
 import com.damai.learning.common.exception.CommonErrorCode;
 import com.damai.learning.order.dto.OrderCancelRequest;
 import com.damai.learning.order.dto.OrderCreateRequest;
+import com.damai.learning.order.dto.OrderPayRequest;
 import com.damai.learning.order.entity.TicketOrder;
 import com.damai.learning.order.enums.OrderStatus;
 import com.damai.learning.order.mapper.TicketOrderMapper;
@@ -17,11 +18,13 @@ import com.damai.learning.program.mapper.ProgramMapper;
 import com.damai.learning.program.mapper.ProgramSessionMapper;
 import com.damai.learning.program.mapper.TicketCategoryMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -42,6 +45,12 @@ public class OrderService {
 
     @Autowired
     private ProgramMapper programMapper;
+
+    /**
+     * 新订单支付时限，默认15分钟。
+     */
+    @Value("${order.timeout.payment-minutes:15}")
+    private long paymentTimeoutMinutes;
 
     /**
      * 创建待支付订单。
@@ -117,6 +126,37 @@ public class OrderService {
     }
 
     /**
+     * 模拟支付待支付订单。
+     */
+    public void payOrder(OrderPayRequest request) {
+        TicketOrder ticketOrder = getUserOrder(request.getUserId(), request.getOrderNo());
+        Integer currentStatus = ticketOrder.getOrderStatus();
+
+        if (Objects.equals(currentStatus, OrderStatus.PAID.getCode())) {
+            return;
+        }
+
+        if (!Objects.equals(currentStatus, OrderStatus.PENDING_PAYMENT.getCode())) {
+            throw new BusinessException(CommonErrorCode.ORDER_STATUS_NOT_ALLOWED);
+        }
+
+        LambdaUpdateWrapper<TicketOrder> updateWrapper = new LambdaUpdateWrapper<>();
+
+        updateWrapper
+                .eq(TicketOrder::getId, ticketOrder.getId())
+                .eq(TicketOrder::getUserId, request.getUserId())
+                .eq(TicketOrder::getOrderStatus, OrderStatus.PENDING_PAYMENT.getCode())
+                .eq(TicketOrder::getStatus, 1)
+                .set(TicketOrder::getOrderStatus, OrderStatus.PAID.getCode());
+
+        int updatedRows = ticketOrderMapper.update(null, updateWrapper);
+
+        if (updatedRows != 1) {
+            throw new BusinessException(CommonErrorCode.ORDER_PAY_FAILED);
+        }
+    }
+
+    /**
      * 校验票档存在且处于可售状态。
      */
     private void validateTicketCategory(TicketCategory ticketCategory) {
@@ -180,11 +220,69 @@ public class OrderService {
         ticketOrder.setUnitPrice(ticketCategory.getPrice());
         ticketOrder.setTotalAmount(totalAmount);
         ticketOrder.setOrderStatus(OrderStatus.PENDING_PAYMENT.getCode());
+        ticketOrder.setExpireTime(LocalDateTime.now().plusMinutes(paymentTimeoutMinutes));
         ticketOrder.setStatus(1);
 
         return ticketOrder;
     }
 
+    /**
+     * 分批查询已经到期的待支付订单。
+     */
+    public List<TicketOrder> findExpiredPendingOrders(LocalDateTime now) {
+        LambdaQueryWrapper<TicketOrder> queryWrapper = new LambdaQueryWrapper<>();
+
+        queryWrapper
+                .eq(TicketOrder::getOrderStatus, OrderStatus.PENDING_PAYMENT.getCode())
+                .eq(TicketOrder::getStatus, 1)
+                .le(TicketOrder::getExpireTime, now)
+                .orderByAsc(TicketOrder::getExpireTime)
+                .last("LIMIT 100");
+
+        return ticketOrderMapper.selectList(queryWrapper);
+    }
+
+    /**
+     * 自动取消一笔已经超时的待支付订单。
+     */
+    @Transactional
+    public void cancelExpiredOrder(Long orderId) {
+        TicketOrder ticketOrder = ticketOrderMapper.selectById(orderId);
+        LocalDateTime now = LocalDateTime.now();
+
+        // 订单不存在、已被处理或尚未到期时，不需要继续取消。
+        if (ticketOrder == null
+                || !Objects.equals(ticketOrder.getStatus(), 1)
+                || !Objects.equals(ticketOrder.getOrderStatus(), OrderStatus.PENDING_PAYMENT.getCode())
+                || ticketOrder.getExpireTime().isAfter(now)) {
+            return;
+        }
+
+        LambdaUpdateWrapper<TicketOrder> updateWrapper = new LambdaUpdateWrapper<>();
+
+        updateWrapper
+                .eq(TicketOrder::getId, ticketOrder.getId())
+                .eq(TicketOrder::getOrderStatus, OrderStatus.PENDING_PAYMENT.getCode())
+                .eq(TicketOrder::getStatus, 1)
+                .le(TicketOrder::getExpireTime, now)
+                .set(TicketOrder::getOrderStatus, OrderStatus.CANCELED.getCode());
+
+        int updatedRows = ticketOrderMapper.update(null, updateWrapper);
+
+        // 查询后可能被用户支付或取消，当前任务没有抢到处理权时直接结束。
+        if (updatedRows == 0) {
+            return;
+        }
+
+        int restoredRows = ticketCategoryMapper.restoreStock(
+                ticketOrder.getTicketCategoryId(),
+                ticketOrder.getQuantity()
+        );
+
+        if (restoredRows != 1) {
+            throw new BusinessException(CommonErrorCode.ORDER_CANCEL_FAILED);
+        }
+    }
     /**
      * 生成当前项目使用的订单号。
      */
@@ -202,6 +300,7 @@ public class OrderService {
         orderCreateVO.setOrderNo(ticketOrder.getOrderNo());
         orderCreateVO.setTotalAmount(ticketOrder.getTotalAmount());
         orderCreateVO.setOrderStatus(ticketOrder.getOrderStatus());
+        orderCreateVO.setExpireTime(ticketOrder.getExpireTime());
 
         return orderCreateVO;
     }

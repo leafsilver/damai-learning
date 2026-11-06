@@ -3,6 +3,7 @@ package com.damai.learning.order.vo;
 import lombok.Data;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 /**
  * 创建订单响应。
@@ -21,4 +22,7 @@ public class OrderCreateVO {
 
     /** 订单状态：1待支付。 */
     private Integer orderStatus;
+
+    /** 支付截止时间。 */
+    private LocalDateTime expireTime;
 }

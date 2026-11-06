@@ -23,3 +23,11 @@ server:
 mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true
+
+order:
+  timeout:
+    # 新订单默认支付时限，单位：分钟
+    payment-minutes: ${ORDER_PAYMENT_TIMEOUT_MINUTES:15}
+
+    # 扫描超时订单的间隔，单位：毫秒
+    scan-delay-ms: ${ORDER_TIMEOUT_SCAN_DELAY_MS:60000}

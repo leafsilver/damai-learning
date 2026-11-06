@@ -46,6 +46,9 @@ public class TicketOrder {
     /** 订单状态：1待支付，2已支付，3已取消。 */
     private Integer orderStatus;
 
+    /** 支付截止时间，超过该时间仍未支付则自动取消。 */
+    private LocalDateTime expireTime;
+
     /** 创建时间。 */
     private LocalDateTime createTime;
 

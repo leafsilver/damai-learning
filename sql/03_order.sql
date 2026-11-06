@@ -13,6 +13,8 @@ CREATE TABLE IF NOT EXISTS d_order
     total_amount         DECIMAL(12, 2) NOT NULL COMMENT '订单总金额',
     order_status         TINYINT        NOT NULL DEFAULT 1
         COMMENT '订单状态：1待支付，2已支付，3已取消',
+    expire_time          DATETIME       NOT NULL
+    COMMENT '支付截止时间',
     create_time          DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP
         COMMENT '创建时间',
     edit_time            DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -23,7 +25,8 @@ CREATE TABLE IF NOT EXISTS d_order
     UNIQUE KEY uk_order_no (order_no),
     KEY idx_user_status (user_id, order_status),
     KEY idx_ticket_category_id (ticket_category_id),
-    KEY idx_create_time (create_time)
+    KEY idx_create_time (create_time),
+    KEY idx_order_timeout (order_status, expire_time)
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
   COMMENT = '订单表';

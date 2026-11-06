@@ -3,6 +3,7 @@ package com.damai.learning.order.controller;
 import com.damai.learning.common.result.Result;
 import com.damai.learning.order.dto.OrderCancelRequest;
 import com.damai.learning.order.dto.OrderCreateRequest;
+import com.damai.learning.order.dto.OrderPayRequest;
 import com.damai.learning.order.service.OrderService;
 import com.damai.learning.order.vo.OrderCreateVO;
 import io.swagger.v3.oas.annotations.Operation;
@@ -36,6 +37,13 @@ public class OrderController {
     @PutMapping("/cancel")
     public Result<Void> cancel(@Valid @RequestBody OrderCancelRequest request) {
         orderService.cancelOrder(request);
+        return Result.success();
+    }
+
+    @Operation(summary = "模拟支付订单")
+    @PutMapping("/pay")
+    public Result<Void> pay(@Valid @RequestBody OrderPayRequest request) {
+        orderService.payOrder(request);
         return Result.success();
     }
 }
