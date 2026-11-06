@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.damai.learning.program.mapper.TicketCategoryMapper">
+
+    <!-- 库存充足且票档可售时，原子扣减可用库存。 -->
+    <update id="deductStock">
+        UPDATE d_ticket_category
+        SET available_stock = available_stock - #{quantity}
+        WHERE id = #{ticketCategoryId}
+          AND available_stock >= #{quantity}
+          AND ticket_status = 1
+          AND status = 1
+    </update>
+
+</mapper>

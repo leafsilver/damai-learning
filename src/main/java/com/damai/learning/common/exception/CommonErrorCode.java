@@ -11,6 +11,16 @@ public enum CommonErrorCode implements ErrorCode {
 
     PROGRAM_CANNOT_OFF_SALE(41002, "节目不存在或已下架"),
 
+    TICKET_CATEGORY_NOT_AVAILABLE(42001, "票档不存在或不可售"),
+
+    PROGRAM_SESSION_NOT_AVAILABLE(42002, "场次不存在或不可售"),
+
+    PROGRAM_SESSION_NOT_ON_SALE(42003, "当前不在售票时间内"),
+
+    TICKET_STOCK_NOT_ENOUGH(42004, "票档库存不足"),
+
+    ORDER_CREATE_FAILED(43001, "订单创建失败"),
+
     REQUEST_PATH_NOT_FOUND(40400, "请求地址不存在"),
 
     INTERNAL_SERVER_ERROR(50000, "系统异常");
