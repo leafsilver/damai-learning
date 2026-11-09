@@ -10,6 +10,7 @@ import com.damai.learning.order.dto.OrderPayRequest;
 import com.damai.learning.order.entity.TicketOrder;
 import com.damai.learning.order.enums.OrderStatus;
 import com.damai.learning.order.mapper.TicketOrderMapper;
+import com.damai.learning.order.message.producer.OrderPaidProducer;
 import com.damai.learning.order.vo.OrderCreateVO;
 import com.damai.learning.program.entity.Program;
 import com.damai.learning.program.entity.ProgramSession;
@@ -45,6 +46,9 @@ public class OrderService {
 
     @Autowired
     private ProgramMapper programMapper;
+
+    @Autowired
+    private OrderPaidProducer orderPaidProducer;
 
     /**
      * 新订单支付时限，默认15分钟。
@@ -154,6 +158,11 @@ public class OrderService {
         if (updatedRows != 1) {
             throw new BusinessException(CommonErrorCode.ORDER_PAY_FAILED);
         }
+
+        // 数据库确认支付成功后，再发送支付成功消息。
+        orderPaidProducer.send(
+                ticketOrder.getOrderNo()
+        );
     }
 
     /**
