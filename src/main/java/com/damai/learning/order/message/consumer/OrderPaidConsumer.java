@@ -1,9 +1,15 @@
 package com.damai.learning.order.message.consumer;
 
 import com.damai.learning.order.message.OrderTopic;
+import com.damai.learning.order.message.entity.MessageConsumeRecord;
+import com.damai.learning.order.message.mapper.MessageConsumeRecordMapper;
+import com.damai.learning.order.message.model.OrderPaidMessage;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 订单支付成功消息消费者。
@@ -12,16 +18,49 @@ import org.springframework.stereotype.Component;
 @Component
 public class OrderPaidConsumer {
 
+    @Autowired
+    private MessageConsumeRecordMapper messageConsumeRecordMapper;
+
     /**
      * 消费订单支付成功消息。
      */
+    @Transactional
     @KafkaListener(
             topics = OrderTopic.ORDER_PAID
     )
-    public void consume(String orderNo) {
+    public void consume(OrderPaidMessage message) {
+        MessageConsumeRecord consumeRecord =
+                new MessageConsumeRecord();
+
+        consumeRecord.setMessageId(
+                message.getMessageId()
+        );
+        consumeRecord.setTopic(
+                OrderTopic.ORDER_PAID
+        );
+        consumeRecord.setBusinessNo(
+                message.getOrderNo()
+        );
+
+        try {
+            messageConsumeRecordMapper.insert(
+                    consumeRecord
+            );
+        } catch (DuplicateKeyException exception) {
+            log.info(
+                    "订单支付成功消息已处理，跳过重复消息，messageId={}，orderNo={}",
+                    message.getMessageId(),
+                    message.getOrderNo()
+            );
+            return;
+        }
+
+        // 当前阶段用日志代替后续的通知、出票等真实业务。
         log.info(
-                "收到订单支付成功消息，orderNo={}",
-                orderNo
+                "处理订单支付成功消息，messageId={}，orderNo={}，paidTime={}",
+                message.getMessageId(),
+                message.getOrderNo(),
+                message.getPaidTime()
         );
     }
 }

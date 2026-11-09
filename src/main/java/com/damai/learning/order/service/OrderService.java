@@ -10,6 +10,7 @@ import com.damai.learning.order.dto.OrderPayRequest;
 import com.damai.learning.order.entity.TicketOrder;
 import com.damai.learning.order.enums.OrderStatus;
 import com.damai.learning.order.mapper.TicketOrderMapper;
+import com.damai.learning.order.message.model.OrderPaidMessage;
 import com.damai.learning.order.message.producer.OrderPaidProducer;
 import com.damai.learning.order.vo.OrderCreateVO;
 import com.damai.learning.program.entity.Program;
@@ -49,6 +50,7 @@ public class OrderService {
 
     @Autowired
     private OrderPaidProducer orderPaidProducer;
+
 
     /**
      * 新订单支付时限，默认15分钟。
@@ -160,9 +162,15 @@ public class OrderService {
         }
 
         // 数据库确认支付成功后，再发送支付成功消息。
-        orderPaidProducer.send(
-                ticketOrder.getOrderNo()
+        OrderPaidMessage message = new OrderPaidMessage(
+                UUID.randomUUID()
+                        .toString()
+                        .replace("-", ""),
+                ticketOrder.getOrderNo(),
+                LocalDateTime.now()
         );
+
+        orderPaidProducer.send(message);
     }
 
     /**
