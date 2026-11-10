@@ -1,16 +1,16 @@
 package com.damai.learning.order.message.producer;
 
-import com.damai.learning.order.message.OrderTopic;
 import com.damai.learning.order.message.model.OrderPaidMessage;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.kafka.support.SendResult;
 import org.springframework.stereotype.Component;
+
+import java.util.concurrent.CompletableFuture;
 
 /**
  * 订单支付成功消息生产者。
  */
-@Slf4j
 @Component
 public class OrderPaidProducer {
 
@@ -18,31 +18,17 @@ public class OrderPaidProducer {
     private KafkaTemplate<String, OrderPaidMessage> kafkaTemplate;
 
     /**
-     * 发送订单支付成功消息。
+     * 发送订单支付成功消息，并返回异步发送结果。
      */
-    public void send(OrderPaidMessage message) {
-        kafkaTemplate.send(
-                OrderTopic.ORDER_PAID,
-                message.getOrderNo(),
+    public CompletableFuture<SendResult<String, OrderPaidMessage>> send(
+            String topic,
+            String messageKey,
+            OrderPaidMessage message
+    ) {
+        return kafkaTemplate.send(
+                topic,
+                messageKey,
                 message
-        ).whenComplete((sendResult, exception) -> {
-            if (exception != null) {
-                log.error(
-                        "订单支付成功消息发送失败，messageId={}，orderNo={}",
-                        message.getMessageId(),
-                        message.getOrderNo(),
-                        exception
-                );
-                return;
-            }
-
-            log.info(
-                    "订单支付成功消息发送成功，messageId={}，orderNo={}，partition={}，offset={}",
-                    message.getMessageId(),
-                    message.getOrderNo(),
-                    sendResult.getRecordMetadata().partition(),
-                    sendResult.getRecordMetadata().offset()
-            );
-        });
+        );
     }
 }

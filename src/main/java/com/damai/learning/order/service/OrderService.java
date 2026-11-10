@@ -10,6 +10,10 @@ import com.damai.learning.order.dto.OrderPayRequest;
 import com.damai.learning.order.entity.TicketOrder;
 import com.damai.learning.order.enums.OrderStatus;
 import com.damai.learning.order.mapper.TicketOrderMapper;
+import com.damai.learning.order.message.OrderTopic;
+import com.damai.learning.order.message.entity.MessageSendRecord;
+import com.damai.learning.order.message.enums.MessageSendStatus;
+import com.damai.learning.order.message.mapper.MessageSendRecordMapper;
 import com.damai.learning.order.message.model.OrderPaidMessage;
 import com.damai.learning.order.message.producer.OrderPaidProducer;
 import com.damai.learning.order.vo.OrderCreateVO;
@@ -19,6 +23,8 @@ import com.damai.learning.program.entity.TicketCategory;
 import com.damai.learning.program.mapper.ProgramMapper;
 import com.damai.learning.program.mapper.ProgramSessionMapper;
 import com.damai.learning.program.mapper.TicketCategoryMapper;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -49,8 +55,12 @@ public class OrderService {
     private ProgramMapper programMapper;
 
     @Autowired
-    private OrderPaidProducer orderPaidProducer;
+    private MessageSendRecordMapper messageSendRecordMapper;
 
+
+
+    @Autowired
+    private ObjectMapper objectMapper;
 
     /**
      * 新订单支付时限，默认15分钟。
@@ -134,34 +144,58 @@ public class OrderService {
     /**
      * 模拟支付待支付订单。
      */
+    @Transactional
     public void payOrder(OrderPayRequest request) {
-        TicketOrder ticketOrder = getUserOrder(request.getUserId(), request.getOrderNo());
+        TicketOrder ticketOrder = getUserOrder(
+                request.getUserId(),
+                request.getOrderNo()
+        );
+
         Integer currentStatus = ticketOrder.getOrderStatus();
 
-        if (Objects.equals(currentStatus, OrderStatus.PAID.getCode())) {
+        if (Objects.equals(
+                currentStatus,
+                OrderStatus.PAID.getCode()
+        )) {
             return;
         }
 
-        if (!Objects.equals(currentStatus, OrderStatus.PENDING_PAYMENT.getCode())) {
-            throw new BusinessException(CommonErrorCode.ORDER_STATUS_NOT_ALLOWED);
+        if (!Objects.equals(
+                currentStatus,
+                OrderStatus.PENDING_PAYMENT.getCode()
+        )) {
+            throw new BusinessException(
+                    CommonErrorCode.ORDER_STATUS_NOT_ALLOWED
+            );
         }
 
-        LambdaUpdateWrapper<TicketOrder> updateWrapper = new LambdaUpdateWrapper<>();
+        LambdaUpdateWrapper<TicketOrder> updateWrapper =
+                new LambdaUpdateWrapper<>();
 
         updateWrapper
                 .eq(TicketOrder::getId, ticketOrder.getId())
                 .eq(TicketOrder::getUserId, request.getUserId())
-                .eq(TicketOrder::getOrderStatus, OrderStatus.PENDING_PAYMENT.getCode())
+                .eq(
+                        TicketOrder::getOrderStatus,
+                        OrderStatus.PENDING_PAYMENT.getCode()
+                )
                 .eq(TicketOrder::getStatus, 1)
-                .set(TicketOrder::getOrderStatus, OrderStatus.PAID.getCode());
+                .set(
+                        TicketOrder::getOrderStatus,
+                        OrderStatus.PAID.getCode()
+                );
 
-        int updatedRows = ticketOrderMapper.update(null, updateWrapper);
+        int updatedRows = ticketOrderMapper.update(
+                null,
+                updateWrapper
+        );
 
         if (updatedRows != 1) {
-            throw new BusinessException(CommonErrorCode.ORDER_PAY_FAILED);
+            throw new BusinessException(
+                    CommonErrorCode.ORDER_PAY_FAILED
+            );
         }
 
-        // 数据库确认支付成功后，再发送支付成功消息。
         OrderPaidMessage message = new OrderPaidMessage(
                 UUID.randomUUID()
                         .toString()
@@ -170,7 +204,56 @@ public class OrderService {
                 LocalDateTime.now()
         );
 
-        orderPaidProducer.send(message);
+        MessageSendRecord sendRecord =
+                buildMessageSendRecord(message);
+
+        int insertedRows =
+                messageSendRecordMapper.insert(sendRecord);
+
+        if (insertedRows != 1) {
+            throw new BusinessException(
+                    CommonErrorCode.ORDER_PAY_FAILED
+            );
+        }
+    }
+
+    /**
+     * 将订单支付消息转换成待发送记录。
+     */
+    private MessageSendRecord buildMessageSendRecord(
+            OrderPaidMessage message
+    ) {
+        MessageSendRecord sendRecord =
+                new MessageSendRecord();
+
+        sendRecord.setMessageId(message.getMessageId());
+        sendRecord.setTopic(OrderTopic.ORDER_PAID);
+        sendRecord.setMessageKey(message.getOrderNo());
+        sendRecord.setMessageBody(
+                serializeMessage(message)
+        );
+        sendRecord.setSendStatus(
+                MessageSendStatus.PENDING.getCode()
+        );
+        sendRecord.setRetryCount(0);
+
+        return sendRecord;
+    }
+
+    /**
+     * 将消息对象转换成JSON字符串。
+     */
+    private String serializeMessage(
+            OrderPaidMessage message
+    ) {
+        try {
+            return objectMapper.writeValueAsString(message);
+        } catch (JsonProcessingException exception) {
+            throw new IllegalStateException(
+                    "订单支付消息序列化失败",
+                    exception
+            );
+        }
     }
 
     /**

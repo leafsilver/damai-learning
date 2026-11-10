@@ -47,3 +47,8 @@ order:
 
     # 扫描超时订单的间隔，单位：毫秒
     scan-delay-ms: ${ORDER_TIMEOUT_SCAN_DELAY_MS:60000}
+
+  message:
+    send:
+      # 扫描待发送消息的间隔，单位：毫秒
+      scan-delay-ms: ${ORDER_MESSAGE_SEND_SCAN_DELAY_MS:5000}
