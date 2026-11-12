@@ -14,6 +14,7 @@ import com.damai.learning.program.entity.TicketCategory;
 import com.damai.learning.program.mapper.ProgramMapper;
 import com.damai.learning.program.mapper.ProgramSessionMapper;
 import com.damai.learning.program.mapper.TicketCategoryMapper;
+import com.damai.learning.program.message.model.ProgramChangedMessage;
 import com.damai.learning.program.vo.ProgramDetailVO;
 import com.damai.learning.program.vo.ProgramListVO;
 import com.damai.learning.program.vo.ProgramSessionVO;
@@ -23,6 +24,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataAccessException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
@@ -71,6 +73,9 @@ public class ProgramService {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    @Autowired
+    private ApplicationEventPublisher applicationEventPublisher;
 
     /**
      * 分页查询已上架且未删除的节目。
@@ -159,6 +164,7 @@ public class ProgramService {
     /**
      * 新增节目，默认设置为上架且未删除状态。
      */
+    @Transactional
     public Long createProgram(ProgramCreateRequest request) {
         Program program = new Program();
 
@@ -171,6 +177,10 @@ public class ProgramService {
         program.setStatus(1);
 
         programMapper.insert(program);
+
+        applicationEventPublisher.publishEvent(
+                new ProgramChangedMessage(program.getId())
+        );
 
         return program.getId();
     }
@@ -197,6 +207,10 @@ public class ProgramService {
         }
 
         deleteProgramDetailCache(id);
+
+        applicationEventPublisher.publishEvent(
+                new ProgramChangedMessage(id)
+        );
     }
 
     /**
@@ -219,6 +233,10 @@ public class ProgramService {
         }
 
         deleteProgramDetailCache(id);
+
+        applicationEventPublisher.publishEvent(
+                new ProgramChangedMessage(id)
+        );
     }
 
     /**

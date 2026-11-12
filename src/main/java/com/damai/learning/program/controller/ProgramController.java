@@ -4,9 +4,11 @@ import com.damai.learning.common.page.PageResult;
 import com.damai.learning.common.result.Result;
 import com.damai.learning.program.dto.ProgramCreateRequest;
 import com.damai.learning.program.dto.ProgramUpdateRequest;
+import com.damai.learning.program.service.ProgramSearchService;
 import com.damai.learning.program.service.ProgramService;
 import com.damai.learning.program.vo.ProgramDetailVO;
 import com.damai.learning.program.vo.ProgramListVO;
+import com.damai.learning.program.vo.ProgramSearchVO;
 import com.damai.learning.program.vo.ProgramSessionVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -33,6 +35,11 @@ public class ProgramController {
 
     @Autowired
     private ProgramService programService;
+
+    @Autowired
+    private ProgramSearchService programSearchService;
+
+
 
     @Operation(summary = "分页查询已上架节目")
     @GetMapping("/list")
@@ -78,5 +85,35 @@ public class ProgramController {
     @GetMapping("/{programId}/sessions")
     public Result<List<ProgramSessionVO>> sessions(@PathVariable("programId") Long programId) {
         return Result.success(programService.listProgramSessions(programId));
+    }
+
+    @Operation(summary = "重建节目搜索索引")
+    @PostMapping("/search/rebuild")
+    public Result<Integer> rebuildSearchIndex() {
+        return Result.success(
+                programSearchService.rebuildProgramIndex()
+        );
+    }
+
+    @Operation(summary = "搜索已上架节目")
+    @GetMapping("/search")
+    public Result<PageResult<ProgramSearchVO>> search(
+            @RequestParam("keyword") String keyword,
+            @RequestParam(
+                    value = "pageNum",
+                    defaultValue = "1"
+            ) long pageNum,
+            @RequestParam(
+                    value = "pageSize",
+                    defaultValue = "10"
+            ) long pageSize
+    ) {
+        return Result.success(
+                programSearchService.searchPrograms(
+                        keyword,
+                        pageNum,
+                        pageSize
+                )
+        );
     }
 }

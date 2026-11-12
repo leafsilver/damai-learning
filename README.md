@@ -6,28 +6,21 @@
 
 学习过程、常用注解速查与每个阶段的理解记录见[学习笔记](docs/学习笔记.md)。
 
-## 当前阶段：V0
+## 当前阶段：核心票务链路与搜索
 
-当前只包含：
+项目目前已经包含：
 
-- Java 17
-- Maven
-- Spring Boot Web
-- 应用启动类
-- 一个用于验证项目运行状态的接口
-- 基础自动化测试
+- 统一响应、错误码、全局异常和参数校验
+- MySQL、MyBatis-Plus和分页查询
+- 节目、场次、票档、订单和库存扣减
+- 订单超时取消、支付消息Outbox与消费幂等
+- 电子票生成、查询和验票
+- Redis节目详情缓存、空值缓存和故障降级
+- Kafka消息发送、消费及补偿任务
+- Elasticsearch中文分词、多字段搜索、权重、分页和高亮
+- MySQL节目数据全量重建及Kafka增量同步ES
 
-启动项目后访问：
-
-```text
-GET http://localhost:8080/api/hello
-```
-
-预期响应：
-
-```text
-damai-learning is running
-```
+项目仍按学习路线继续演进，不代表已完成生产环境所需的全部安全、监控和高可用能力。
 
 ## 学习路线
 
@@ -46,6 +39,34 @@ damai-learning is running
 
 - JDK 17
 - Maven 3.6.3 或更高版本
+- MySQL 8
+- Docker Desktop
+
+Docker Compose管理以下本地中间件：
+
+```text
+Redis：localhost:6379
+Kafka：localhost:9092
+Kafka UI：http://localhost:8081
+Elasticsearch：http://localhost:9200
+Kibana：http://localhost:5601
+```
+
+启动中间件：
+
+```bash
+docker compose up -d
+```
+
+按照`sql`目录中的脚本初始化MySQL，并通过环境变量或不提交Git的`application-local.yml`提供本地数据库密码。不要把真实密码写入仓库。
+
+启动应用后，可访问：
+
+```text
+健康检查：http://localhost:8080/api/hello
+Swagger UI：http://localhost:8080/swagger-ui.html
+OpenAPI文档：http://localhost:8080/v3/api-docs
+```
 
 运行测试：
 

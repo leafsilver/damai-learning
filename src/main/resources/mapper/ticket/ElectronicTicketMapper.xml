@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.damai.learning.ticket.mapper.ElectronicTicketMapper">
+
+    <select id="selectUserTicketPage"
+            resultType="com.damai.learning.ticket.vo.ElectronicTicketVO">
+        SELECT et.ticket_no,
+               et.order_no,
+               et.ticket_index,
+               p.title AS program_title,
+               p.place,
+               ps.session_name,
+               ps.show_time,
+               tc.category_name,
+               o.unit_price,
+               et.ticket_status,
+               et.verify_time,
+               et.create_time
+          FROM d_electronic_ticket et
+          JOIN d_order o
+            ON o.order_no = et.order_no
+          JOIN d_program p
+            ON p.id = et.program_id
+          JOIN d_program_session ps
+            ON ps.id = et.session_id
+          JOIN d_ticket_category tc
+            ON tc.id = et.ticket_category_id
+         WHERE et.user_id = #{userId}
+         ORDER BY et.create_time DESC,
+                  et.ticket_index ASC
+    </select>
+
+</mapper>

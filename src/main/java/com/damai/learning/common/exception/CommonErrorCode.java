@@ -29,6 +29,12 @@ public enum CommonErrorCode implements ErrorCode {
 
     ORDER_PAY_FAILED(43005, "订单支付失败"),
 
+    ELECTRONIC_TICKET_NOT_EXIST(44001, "电子票不存在"),
+
+    ELECTRONIC_TICKET_ALREADY_USED(44002, "电子票已经使用"),
+
+    ELECTRONIC_TICKET_INVALID(44003, "电子票已经作废"),
+
     REQUEST_PATH_NOT_FOUND(40400, "请求地址不存在"),
 
     INTERNAL_SERVER_ERROR(50000, "系统异常");

@@ -4,6 +4,7 @@ import com.damai.learning.order.message.OrderTopic;
 import com.damai.learning.order.message.entity.MessageConsumeRecord;
 import com.damai.learning.order.message.mapper.MessageConsumeRecordMapper;
 import com.damai.learning.order.message.model.OrderPaidMessage;
+import com.damai.learning.ticket.service.ElectronicTicketService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
@@ -20,6 +21,9 @@ public class OrderPaidConsumer {
 
     @Autowired
     private MessageConsumeRecordMapper messageConsumeRecordMapper;
+
+    @Autowired
+    private ElectronicTicketService electronicTicketService;
 
     /**
      * 消费订单支付成功消息。
@@ -55,9 +59,12 @@ public class OrderPaidConsumer {
             return;
         }
 
-        // 当前阶段用日志代替后续的通知、出票等真实业务。
+        electronicTicketService.issueTickets(
+                message.getOrderNo()
+        );
+
         log.info(
-                "处理订单支付成功消息，messageId={}，orderNo={}，paidTime={}",
+                "订单支付成功消息处理完成，messageId={}，orderNo={}，paidTime={}",
                 message.getMessageId(),
                 message.getOrderNo(),
                 message.getPaidTime()
