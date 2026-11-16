@@ -57,3 +57,8 @@ order:
     send:
       # 扫描待发送消息的间隔，单位：毫秒
       scan-delay-ms: ${ORDER_MESSAGE_SEND_SCAN_DELAY_MS:5000}
+
+security:
+  jwt:
+    # Access Token有效期，单位：分钟
+    expiration-minutes: ${JWT_EXPIRATION_MINUTES:120}

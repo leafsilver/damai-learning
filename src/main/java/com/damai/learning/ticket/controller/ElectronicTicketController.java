@@ -2,6 +2,7 @@ package com.damai.learning.ticket.controller;
 
 import com.damai.learning.common.page.PageResult;
 import com.damai.learning.common.result.Result;
+import com.damai.learning.common.security.LoginUserContext;
 import com.damai.learning.ticket.service.ElectronicTicketService;
 import com.damai.learning.ticket.vo.ElectronicTicketVO;
 import io.swagger.v3.oas.annotations.Operation;
@@ -28,10 +29,11 @@ public class ElectronicTicketController {
     @Operation(summary = "分页查询用户电子票")
     @GetMapping("/list")
     public Result<PageResult<ElectronicTicketVO>> list(
-            @RequestParam("userId") Long userId,
             @RequestParam(value = "pageNum", defaultValue = "1") long pageNum,
             @RequestParam(value = "pageSize", defaultValue = "10") long pageSize
     ) {
+        Long userId = LoginUserContext.getUserId();
+
         return Result.success(
                 electronicTicketService.pageUserTickets(
                         userId,

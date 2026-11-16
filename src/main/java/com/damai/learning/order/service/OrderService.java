@@ -72,7 +72,7 @@ public class OrderService {
      * 创建待支付订单。
      */
     @Transactional
-    public OrderCreateVO createOrder(OrderCreateRequest request) {
+    public OrderCreateVO createOrder(Long userId, OrderCreateRequest request) {
         TicketCategory ticketCategory = ticketCategoryMapper.selectById(request.getTicketCategoryId());
 
         validateTicketCategory(ticketCategory);
@@ -91,7 +91,12 @@ public class OrderService {
             throw new BusinessException(CommonErrorCode.TICKET_STOCK_NOT_ENOUGH);
         }
 
-        TicketOrder ticketOrder = buildTicketOrder(request, ticketCategory, programSession);
+        TicketOrder ticketOrder = buildTicketOrder(
+                userId,
+                request,
+                ticketCategory,
+                programSession
+        );
 
         int insertedRows = ticketOrderMapper.insert(ticketOrder);
 
@@ -106,8 +111,8 @@ public class OrderService {
      * 取消待支付订单并恢复库存。
      */
     @Transactional
-    public void cancelOrder(OrderCancelRequest request) {
-        TicketOrder ticketOrder = getUserOrder(request.getUserId(), request.getOrderNo());
+    public void cancelOrder(Long userId, OrderCancelRequest request) {
+        TicketOrder ticketOrder = getUserOrder(userId, request.getOrderNo());
         Integer currentStatus = ticketOrder.getOrderStatus();
 
         if (Objects.equals(currentStatus, OrderStatus.CANCELED.getCode())) {
@@ -122,7 +127,7 @@ public class OrderService {
 
         updateWrapper
                 .eq(TicketOrder::getId, ticketOrder.getId())
-                .eq(TicketOrder::getUserId, request.getUserId())
+                .eq(TicketOrder::getUserId, userId)
                 .eq(TicketOrder::getOrderStatus, OrderStatus.PENDING_PAYMENT.getCode())
                 .eq(TicketOrder::getStatus, 1)
                 .set(TicketOrder::getOrderStatus, OrderStatus.CANCELED.getCode());
@@ -145,9 +150,9 @@ public class OrderService {
      * 模拟支付待支付订单。
      */
     @Transactional
-    public void payOrder(OrderPayRequest request) {
+    public void payOrder(Long userId, OrderPayRequest request) {
         TicketOrder ticketOrder = getUserOrder(
-                request.getUserId(),
+                userId,
                 request.getOrderNo()
         );
 
@@ -174,7 +179,7 @@ public class OrderService {
 
         updateWrapper
                 .eq(TicketOrder::getId, ticketOrder.getId())
-                .eq(TicketOrder::getUserId, request.getUserId())
+                .eq(TicketOrder::getUserId, userId)
                 .eq(
                         TicketOrder::getOrderStatus,
                         OrderStatus.PENDING_PAYMENT.getCode()
@@ -304,7 +309,7 @@ public class OrderService {
     /**
      * 组装待写入数据库的订单实体。
      */
-    private TicketOrder buildTicketOrder(OrderCreateRequest request, TicketCategory ticketCategory,
+    private TicketOrder buildTicketOrder(Long userId,OrderCreateRequest request, TicketCategory ticketCategory,
                                          ProgramSession programSession) {
         BigDecimal totalAmount = ticketCategory.getPrice()
                 .multiply(BigDecimal.valueOf(request.getQuantity()));
@@ -312,7 +317,7 @@ public class OrderService {
         TicketOrder ticketOrder = new TicketOrder();
 
         ticketOrder.setOrderNo(generateOrderNo());
-        ticketOrder.setUserId(request.getUserId());
+        ticketOrder.setUserId(userId);
         ticketOrder.setProgramId(programSession.getProgramId());
         ticketOrder.setSessionId(programSession.getId());
         ticketOrder.setTicketCategoryId(ticketCategory.getId());

@@ -1,6 +1,7 @@
 package com.damai.learning.order.controller;
 
 import com.damai.learning.common.result.Result;
+import com.damai.learning.common.security.LoginUserContext;
 import com.damai.learning.order.dto.OrderCancelRequest;
 import com.damai.learning.order.dto.OrderCreateRequest;
 import com.damai.learning.order.dto.OrderPayRequest;
@@ -29,21 +30,37 @@ public class OrderController {
 
     @Operation(summary = "创建待支付订单")
     @PostMapping("/create")
-    public Result<OrderCreateVO> create(@Valid @RequestBody OrderCreateRequest request) {
-        return Result.success(orderService.createOrder(request));
+    public Result<OrderCreateVO> create(
+            @Valid @RequestBody OrderCreateRequest request
+    ) {
+        Long userId = LoginUserContext.getUserId();
+
+        return Result.success(
+                orderService.createOrder(userId, request)
+        );
     }
 
     @Operation(summary = "取消待支付订单")
     @PutMapping("/cancel")
-    public Result<Void> cancel(@Valid @RequestBody OrderCancelRequest request) {
-        orderService.cancelOrder(request);
+    public Result<Void> cancel(
+            @Valid @RequestBody OrderCancelRequest request
+    ) {
+        Long userId = LoginUserContext.getUserId();
+
+        orderService.cancelOrder(userId, request);
+
         return Result.success();
     }
 
     @Operation(summary = "模拟支付订单")
     @PutMapping("/pay")
-    public Result<Void> pay(@Valid @RequestBody OrderPayRequest request) {
-        orderService.payOrder(request);
+    public Result<Void> pay(
+            @Valid @RequestBody OrderPayRequest request
+    ) {
+        Long userId = LoginUserContext.getUserId();
+
+        orderService.payOrder(userId, request);
+
         return Result.success();
     }
 }

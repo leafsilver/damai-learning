@@ -35,6 +35,16 @@ public enum CommonErrorCode implements ErrorCode {
 
     ELECTRONIC_TICKET_INVALID(44003, "电子票已经作废"),
 
+    USERNAME_ALREADY_EXISTS(45001, "用户名已存在"),
+
+    USERNAME_OR_PASSWORD_ERROR(45002, "用户名或密码错误"),
+
+    USER_DISABLED(45003, "用户已被禁用"),
+
+    LOGIN_REQUIRED(40101, "请先登录"),
+
+    TOKEN_INVALID_OR_EXPIRED(40102, "登录凭证无效或已过期"),
+
     REQUEST_PATH_NOT_FOUND(40400, "请求地址不存在"),
 
     INTERNAL_SERVER_ERROR(50000, "系统异常");
