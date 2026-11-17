@@ -2,6 +2,7 @@ package com.damai.learning.order.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.damai.learning.common.annotation.OperationLog;
 import com.damai.learning.common.exception.BusinessException;
 import com.damai.learning.common.exception.CommonErrorCode;
 import com.damai.learning.order.dto.OrderCancelRequest;
@@ -71,6 +72,7 @@ public class OrderService {
     /**
      * 创建待支付订单。
      */
+    @OperationLog("创建订单")
     @Transactional
     public OrderCreateVO createOrder(Long userId, OrderCreateRequest request) {
         TicketCategory ticketCategory = ticketCategoryMapper.selectById(request.getTicketCategoryId());
@@ -110,6 +112,7 @@ public class OrderService {
     /**
      * 取消待支付订单并恢复库存。
      */
+    @OperationLog("取消订单")
     @Transactional
     public void cancelOrder(Long userId, OrderCancelRequest request) {
         TicketOrder ticketOrder = getUserOrder(userId, request.getOrderNo());
@@ -149,6 +152,7 @@ public class OrderService {
     /**
      * 模拟支付待支付订单。
      */
+    @OperationLog("支付订单")
     @Transactional
     public void payOrder(Long userId, OrderPayRequest request) {
         TicketOrder ticketOrder = getUserOrder(

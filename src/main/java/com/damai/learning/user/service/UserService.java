@@ -1,6 +1,7 @@
 package com.damai.learning.user.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.damai.learning.common.annotation.OperationLog;
 import com.damai.learning.common.exception.BusinessException;
 import com.damai.learning.common.exception.CommonErrorCode;
 import com.damai.learning.common.security.JwtTokenUtil;
@@ -42,6 +43,7 @@ public class UserService {
      *
      * @return 新用户id
      */
+    @OperationLog("用户注册")
     @Transactional
     public Long register(UserRegisterRequest request) {
         LambdaQueryWrapper<UserAccount> queryWrapper =
@@ -87,6 +89,7 @@ public class UserService {
     /**
      * 校验用户名和密码并签发JWT。
      */
+    @OperationLog("用户登录")
     public UserLoginVO login(UserLoginRequest request) {
         LambdaQueryWrapper<UserAccount> queryWrapper =
                 new LambdaQueryWrapper<>();
