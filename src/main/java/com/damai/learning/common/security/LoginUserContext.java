@@ -11,6 +11,9 @@ public final class LoginUserContext {
     private static final ThreadLocal<Long> USER_ID_HOLDER =
             new ThreadLocal<>();
 
+    private static final ThreadLocal<String> TOKEN_ID_HOLDER =
+            new ThreadLocal<>();
+
     private LoginUserContext() {
     }
 
@@ -37,9 +40,32 @@ public final class LoginUserContext {
     }
 
     /**
-     * 清除当前线程保存的用户信息。
+     * 保存当前Token编号。
+     */
+    public static void setTokenId(String tokenId) {
+        TOKEN_ID_HOLDER.set(tokenId);
+    }
+
+    /**
+     * 获取当前Token编号。
+     */
+    public static String getTokenId() {
+        String tokenId = TOKEN_ID_HOLDER.get();
+
+        if (tokenId == null) {
+            throw new BusinessException(
+                    CommonErrorCode.LOGIN_REQUIRED
+            );
+        }
+
+        return tokenId;
+    }
+
+    /**
+     * 清除当前线程保存的登录信息。
      */
     public static void clear() {
         USER_ID_HOLDER.remove();
+        TOKEN_ID_HOLDER.remove();
     }
 }

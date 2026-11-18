@@ -1,6 +1,7 @@
 package com.damai.learning.user.controller;
 
 import com.damai.learning.common.result.Result;
+import com.damai.learning.common.security.LoginUserContext;
 import com.damai.learning.user.dto.UserLoginRequest;
 import com.damai.learning.user.dto.UserRegisterRequest;
 import com.damai.learning.user.service.UserService;
@@ -43,5 +44,15 @@ public class UserController {
         return Result.success(
                 userService.login(request)
         );
+    }
+
+    @Operation(summary = "退出登录")
+    @PostMapping("/logout")
+    public Result<Void> logout() {
+        String tokenId = LoginUserContext.getTokenId();
+
+        userService.logout(tokenId);
+
+        return Result.success();
     }
 }

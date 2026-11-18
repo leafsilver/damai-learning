@@ -25,6 +25,7 @@ public final class JwtTokenUtil {
     public static String createToken(
             Long userId,
             String username,
+            String tokenId,
             String secret,
             long expirationMinutes
     ) {
@@ -38,6 +39,7 @@ public final class JwtTokenUtil {
         );
 
         return Jwts.builder()
+                .id(tokenId)
                 .subject(userId.toString())
                 .claim("username", username)
                 .issuedAt(Date.from(issuedAt))

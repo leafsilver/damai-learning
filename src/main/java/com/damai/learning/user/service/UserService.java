@@ -13,12 +13,14 @@ import com.damai.learning.user.vo.UserLoginVO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.util.Objects;
+import java.util.UUID;
 
 /**
  * 用户业务服务。
@@ -32,11 +34,17 @@ public class UserService {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
+    @Autowired
+    private StringRedisTemplate stringRedisTemplate;
+
     @Value("${security.jwt.secret}")
     private String jwtSecret;
 
     @Value("${security.jwt.expiration-minutes}")
     private long jwtExpirationMinutes;
+
+    private static final String LOGIN_TOKEN_KEY_PREFIX =
+            "damai:user:login:token:";
 
     /**
      * 注册新用户。
@@ -123,21 +131,42 @@ public class UserService {
             );
         }
 
+        String tokenId = UUID.randomUUID()
+                .toString()
+                .replace("-", "");
+
+        Duration expiration = Duration.ofMinutes(
+                jwtExpirationMinutes
+        );
+
         String accessToken = JwtTokenUtil.createToken(
                 userAccount.getId(),
                 userAccount.getUsername(),
+                tokenId,
                 jwtSecret,
                 jwtExpirationMinutes
         );
 
-        long expirationSeconds = Duration.ofMinutes(
-                jwtExpirationMinutes
-        ).toSeconds();
+        stringRedisTemplate.opsForValue().set(
+                LOGIN_TOKEN_KEY_PREFIX + tokenId,
+                userAccount.getId().toString(),
+                expiration
+        );
 
         return new UserLoginVO(
                 accessToken,
                 "Bearer",
-                expirationSeconds
+                expiration.toSeconds()
+        );
+    }
+
+    /**
+     * 退出当前登录会话。
+     */
+    @OperationLog("用户退出")
+    public void logout(String tokenId) {
+        stringRedisTemplate.delete(
+                LOGIN_TOKEN_KEY_PREFIX + tokenId
         );
     }
 }
