@@ -5,14 +5,25 @@
 
 <mapper namespace="com.damai.learning.program.mapper.TicketCategoryMapper">
 
-    <!-- 库存充足且票档可售时，原子扣减可用库存。 -->
+    <!-- 库存及相关业务状态均满足时，原子扣减可用库存。 -->
     <update id="deductStock">
-        UPDATE d_ticket_category
-        SET available_stock = available_stock - #{quantity}
-        WHERE id = #{ticketCategoryId}
-          AND available_stock >= #{quantity}
-          AND ticket_status = 1
-          AND status = 1
+        UPDATE d_ticket_category AS ticket
+            INNER JOIN d_program_session AS session
+                ON session.id = ticket.session_id
+            INNER JOIN d_program AS program
+                ON program.id = session.program_id
+        SET ticket.available_stock =
+                ticket.available_stock - #{quantity}
+        WHERE ticket.id = #{ticketCategoryId}
+          AND ticket.available_stock >= #{quantity}
+          AND ticket.ticket_status = 1
+          AND ticket.status = 1
+          AND session.session_status = 1
+          AND session.status = 1
+          AND CURRENT_TIMESTAMP >= session.sale_start_time
+          AND CURRENT_TIMESTAMP &lt;= session.sale_end_time
+          AND program.program_status = 1
+          AND program.status = 1
     </update>
 
     <!-- 取消订单时恢复库存，并防止可用库存超过总库存。 -->

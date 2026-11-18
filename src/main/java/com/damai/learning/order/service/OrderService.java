@@ -17,6 +17,7 @@ import com.damai.learning.order.message.enums.MessageSendStatus;
 import com.damai.learning.order.message.mapper.MessageSendRecordMapper;
 import com.damai.learning.order.message.model.OrderPaidMessage;
 import com.damai.learning.order.message.producer.OrderPaidProducer;
+import com.damai.learning.order.redis.TicketStockRedisRepository;
 import com.damai.learning.order.vo.OrderCreateVO;
 import com.damai.learning.program.entity.Program;
 import com.damai.learning.program.entity.ProgramSession;
@@ -26,10 +27,15 @@ import com.damai.learning.program.mapper.ProgramSessionMapper;
 import com.damai.learning.program.mapper.TicketCategoryMapper;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -40,6 +46,7 @@ import java.util.UUID;
 /**
  * 订单业务服务，负责下单校验、库存扣减和订单创建。
  */
+@Slf4j
 @Service
 public class OrderService {
 
@@ -58,10 +65,11 @@ public class OrderService {
     @Autowired
     private MessageSendRecordMapper messageSendRecordMapper;
 
-
-
     @Autowired
     private ObjectMapper objectMapper;
+
+    @Autowired
+    private TicketStockRedisRepository ticketStockRedisRepository;
 
     /**
      * 新订单支付时限，默认15分钟。
@@ -74,23 +82,58 @@ public class OrderService {
      */
     @OperationLog("创建订单")
     @Transactional
-    public OrderCreateVO createOrder(Long userId, OrderCreateRequest request) {
-        TicketCategory ticketCategory = ticketCategoryMapper.selectById(request.getTicketCategoryId());
+    public OrderCreateVO createOrder(
+            Long userId,
+            OrderCreateRequest request
+    ) {
+        TicketCategory ticketCategory =
+                ticketCategoryMapper.selectById(
+                        request.getTicketCategoryId()
+                );
 
         validateTicketCategory(ticketCategory);
 
-        ProgramSession programSession = programSessionMapper.selectById(ticketCategory.getSessionId());
+        ProgramSession programSession =
+                programSessionMapper.selectById(
+                        ticketCategory.getSessionId()
+                );
 
         validateProgramSession(programSession);
         validateSaleTime(programSession);
 
-        Program program = programMapper.selectById(programSession.getProgramId());
+        Program program =
+                programMapper.selectById(
+                        programSession.getProgramId()
+                );
+
         validateProgram(program);
 
-        int affectedRows = ticketCategoryMapper.deductStock(ticketCategory.getId(), request.getQuantity());
+        AtomicBoolean redisStockDeducted =
+                new AtomicBoolean(false);
+
+        registerRedisDeductRollbackCompensation(
+                ticketCategory.getId(),
+                request.getQuantity(),
+                redisStockDeducted
+        );
+
+        deductRedisStock(
+                ticketCategory,
+                request.getQuantity()
+        );
+
+        redisStockDeducted.set(true);
+
+        int affectedRows =
+                ticketCategoryMapper.deductStock(
+                        ticketCategory.getId(),
+                        request.getQuantity()
+                );
 
         if (affectedRows != 1) {
-            throw new BusinessException(CommonErrorCode.TICKET_STOCK_NOT_ENOUGH);
+            throw new BusinessException(
+                    CommonErrorCode.TICKET_STOCK_NOT_ENOUGH
+            );
         }
 
         TicketOrder ticketOrder = buildTicketOrder(
@@ -100,10 +143,13 @@ public class OrderService {
                 programSession
         );
 
-        int insertedRows = ticketOrderMapper.insert(ticketOrder);
+        int insertedRows =
+                ticketOrderMapper.insert(ticketOrder);
 
         if (insertedRows != 1) {
-            throw new BusinessException(CommonErrorCode.ORDER_CREATE_FAILED);
+            throw new BusinessException(
+                    CommonErrorCode.ORDER_CREATE_FAILED
+            );
         }
 
         return toOrderCreateVO(ticketOrder);
@@ -147,6 +193,11 @@ public class OrderService {
         if (restoredRows != 1) {
             throw new BusinessException(CommonErrorCode.ORDER_CANCEL_FAILED);
         }
+
+        registerRedisRestoreAfterCommit(
+                ticketOrder.getTicketCategoryId(),
+                ticketOrder.getQuantity()
+        );
     }
 
     /**
@@ -311,6 +362,154 @@ public class OrderService {
     }
 
     /**
+     * 初始化并预扣Redis票档库存。
+     */
+    private void deductRedisStock(
+            TicketCategory ticketCategory,
+            Integer quantity
+    ) {
+        long result =
+                ticketStockRedisRepository.deductStock(
+                        ticketCategory.getId(),
+                        quantity
+                );
+
+        if (result == -1) {
+            ticketStockRedisRepository.initializeStock(
+                    ticketCategory.getId(),
+                    ticketCategory.getAvailableStock()
+            );
+
+            result = ticketStockRedisRepository.deductStock(
+                    ticketCategory.getId(),
+                    quantity
+            );
+        }
+
+        if (result == 1) {
+            return;
+        }
+
+        if (result == 0) {
+            throw new BusinessException(
+                    CommonErrorCode.TICKET_STOCK_NOT_ENOUGH
+            );
+        }
+
+        if (result == -2) {
+            throw new BusinessException(
+                    CommonErrorCode.INVALID_PARAMETER
+            );
+        }
+
+        throw new IllegalStateException(
+                "Redis票档库存未完成初始化"
+        );
+    }
+
+    /**
+     * MySQL事务未提交时恢复已经预扣的Redis库存。
+     */
+    private void registerRedisDeductRollbackCompensation(
+            Long ticketCategoryId,
+            Integer quantity,
+            AtomicBoolean redisStockDeducted
+    ) {
+        TransactionSynchronizationManager.registerSynchronization(
+                new TransactionSynchronization() {
+
+                    @Override
+                    public void afterCompletion(int status) {
+                        boolean transactionCommitted =
+                                status
+                                        == TransactionSynchronization
+                                        .STATUS_COMMITTED;
+
+                        if (transactionCommitted
+                                || !redisStockDeducted.get()) {
+                            return;
+                        }
+
+                        restoreRedisStockSafely(
+                                ticketCategoryId,
+                                quantity,
+                                "创建订单事务回滚"
+                        );
+                    }
+                }
+        );
+    }
+
+    /**
+     * MySQL事务提交成功后恢复Redis库存。
+     */
+    private void registerRedisRestoreAfterCommit(
+            Long ticketCategoryId,
+            Integer quantity
+    ) {
+        TransactionSynchronizationManager.registerSynchronization(
+                new TransactionSynchronization() {
+
+                    @Override
+                    public void afterCommit() {
+                        restoreRedisStockSafely(
+                                ticketCategoryId,
+                                quantity,
+                                "取消订单事务提交"
+                        );
+                    }
+                }
+        );
+    }
+
+    /**
+     * 恢复Redis库存，失败时记录日志等待后续校准。
+     */
+    private void restoreRedisStockSafely(
+            Long ticketCategoryId,
+            Integer quantity,
+            String reason
+    ) {
+        try {
+            long result =
+                    ticketStockRedisRepository.restoreStock(
+                            ticketCategoryId,
+                            quantity
+                    );
+
+            if (result == 0) {
+                log.warn(
+                        "Redis库存Key不存在，跳过恢复，"
+                                + "ticketCategoryId={}，reason={}",
+                        ticketCategoryId,
+                        reason
+                );
+
+                return;
+            }
+
+            if (result != 1) {
+                log.error(
+                        "Redis库存恢复返回异常结果，"
+                                + "ticketCategoryId={}，"
+                                + "result={}，reason={}",
+                        ticketCategoryId,
+                        result,
+                        reason
+                );
+            }
+        } catch (Exception exception) {
+            log.error(
+                    "Redis库存恢复失败，"
+                            + "ticketCategoryId={}，reason={}",
+                    ticketCategoryId,
+                    reason,
+                    exception
+            );
+        }
+    }
+
+    /**
      * 组装待写入数据库的订单实体。
      */
     private TicketOrder buildTicketOrder(Long userId,OrderCreateRequest request, TicketCategory ticketCategory,
@@ -391,6 +590,11 @@ public class OrderService {
         if (restoredRows != 1) {
             throw new BusinessException(CommonErrorCode.ORDER_CANCEL_FAILED);
         }
+
+        this.registerRedisRestoreAfterCommit(
+                ticketOrder.getTicketCategoryId(),
+                ticketOrder.getQuantity()
+        );
     }
     /**
      * 生成当前项目使用的订单号。
